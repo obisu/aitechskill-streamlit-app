@@ -1,0 +1,5 @@
+definition_version: 1
+streamlit:
+  name: avalanche_streamlit_app
+  main_file: streamlit_app.py
+
