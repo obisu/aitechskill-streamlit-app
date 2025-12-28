@@ -1,22 +1,47 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-
-# This does not work outside Snowflake, so you have to use SQL instead.
-# from snowflake.cortex import complete
+import snowflake.connector
+import os
 
 # Initialize the Streamlit app
 st.title("Avalanche Streamlit App")
 
-# Get data from Snowflake. This is instead of using get_active_session
-session = st.connection("snowflake").session()
+# ---------------------------------------------------------
+# REPLACE st.connection("snowflake") WITH ENV‑BASED CONNECTOR
+# ---------------------------------------------------------
+conn = snowflake.connector.connect(
+    user=os.getenv("SNOWFLAKE_USER"),
+    password=os.getenv("SNOWFLAKE_PASSWORD"),
+    account=os.getenv("SNOWFLAKE_ACCOUNT"),
+    warehouse=os.getenv("SNOWFLAKE_WAREHOUSE"),
+    database=os.getenv("SNOWFLAKE_DATABASE"),
+    schema=os.getenv("SNOWFLAKE_SCHEMA"),
+)
+
+# IMPORTANT: mimic Snowpark-style .sql().to_pandas()
+class SessionWrapper:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def sql(self, query):
+        cur = self.conn.cursor()
+        cur.execute(query)
+        rows = cur.fetchall()
+        cols = [c[0] for c in cur.description]
+        cur.close()
+        return pd.DataFrame(rows, columns=cols)
+
+session = SessionWrapper(conn)
+# ---------------------------------------------------------
+
 query = """
 SELECT
     *
 FROM
     REVIEWS_WITH_SENTIMENT
 """
-df_reviews = session.sql(query).to_pandas()
+df_reviews = session.sql(query)
 df_string = df_reviews.to_string(index=False)
 
 # Convert date columns to datetime
@@ -43,7 +68,6 @@ if product != "All Products":
 else:
     filtered_data = df_reviews
 
-
 # Display the filtered data as a table
 st.subheader(f"📁 Reviews for {product}")
 st.dataframe(filtered_data)
@@ -62,8 +86,12 @@ st.subheader("Ask Questions About Your Data")
 user_question = st.text_input("Enter your question here:")
 
 if user_question:
-    # The cortex complete does not work outside Snowflake
-    # response = complete(model="claude-3-5-sonnet", prompt=f"Answer this question using the dataset: {user_question} <context>{df_string}</context>", session=session)
-    # Use SQL instead:
-    response = session.sql(f"SELECT SNOWFLAKE.CORTEX.COMPLETE('claude-3-5-sonnet', '{user_question}');").collect()[0][0]
+    # Use SQL instead of Snowpark Cortex
+    query = f"""
+        SELECT SNOWFLAKE.CORTEX.COMPLETE(
+            'claude-3-5-sonnet',
+            '{user_question}'
+        );
+    """
+    response = session.sql(query).iloc[0, 0]
     st.write(response)
