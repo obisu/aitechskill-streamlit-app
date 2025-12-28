@@ -1,8 +1,8 @@
 import streamlit as st
 from snowflake.snowpark.context import get_active_session
+from snowflake.snowpark.functions import call_function, lit
 import pandas as pd
 import matplotlib.pyplot as plt
-from snowflake.cortex import complete
 
 # Initialize the Streamlit app
 st.title("Avalanche Streamlit App")
@@ -65,10 +65,21 @@ st.subheader("Ask Questions About Your Data")
 user_question = st.text_input("Enter your question here:")
 
 if user_question:
-    response = complete(
-        model="claude-3-5-sonnet",
-        prompt=f"Answer this question using the dataset: {user_question} <context>{df_string}</context>",
-        session=session
+    # Build the prompt
+    full_prompt = (
+        f"Answer this question using the dataset: {user_question} "
+        f"<context>{df_string}</context>"
     )
+
+    # Call Cortex via SQL
+    response_df = session.sql(f"""
+        SELECT SNOWFLAKE.CORTEX.COMPLETE(
+            'claude-3-5-sonnet',
+            $$ {full_prompt} $$
+        ) AS result
+    """).to_pandas()
+
+    response = response_df["RESULT"][0]
     st.write(response)
+
 
