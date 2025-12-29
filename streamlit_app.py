@@ -107,12 +107,19 @@ st.subheader("Ask Questions About Your Data")
 user_question = st.text_input("Enter your question here:")
 
 if user_question:
-    # Use SQL instead of Snowpark Cortex
+    # Build the full prompt using your new helper function
+    full_prompt = create_avalanche_prompt(
+        user_question=user_question,
+        dataframe_context=df_string
+    )
+
+    # Call Cortex using the constructed prompt
     query = f"""
         SELECT SNOWFLAKE.CORTEX.COMPLETE(
             'claude-3-5-sonnet',
-            '{user_question}'
+            $$ {full_prompt} $$
         );
     """
+
     response = session.sql(query).iloc[0, 0]
     st.write(response)
