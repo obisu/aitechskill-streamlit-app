@@ -48,6 +48,27 @@ df_string = df_reviews.to_string(index=False)
 df_reviews['REVIEW_DATE'] = pd.to_datetime(df_reviews['REVIEW_DATE'])
 df_reviews['SHIPPING_DATE'] = pd.to_datetime(df_reviews['SHIPPING_DATE'])
 
+df_string = df_reviews.to_string(index=False)
+
+def create_avalanche_prompt(user_question: str, dataframe_context: str) -> str:
+    """Creates the prompt for the LLM."""
+    prompt = f"""
+You are a helpful AI chat assistant. Answer the user's question based on the provided
+context data from customer reviews provided below.
+
+Use the data in the <context> section to inform your answer about customer reviews or sentiments
+if the question relates to it. If the question is general and not answerable from the context, answer naturally. Do not explicitly mention "based on the context" unless necessary for clarity.
+
+<context>
+{dataframe_context}
+</context>
+
+<question>
+{user_question}
+</question>
+"""
+    return prompt
+
 # Visualization: Average Sentiment by Product
 st.subheader("Average Sentiment by Product")
 product_sentiment = df_reviews.groupby("PRODUCT")["SENTIMENT_SCORE"].mean().sort_values()
